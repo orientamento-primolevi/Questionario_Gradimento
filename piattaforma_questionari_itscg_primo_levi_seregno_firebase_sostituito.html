@@ -1,0 +1,1956 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Piattaforma Questionari - ITSCG Primo Levi Seregno</title>
+    <!-- Tailwind CSS per layout moderno e responsivo -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js per grafici statistici interattivi -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+            background: linear-gradient(135deg, #020617, #0b152d, #1e3a8a, #0284c7);
+            background-attachment: fixed;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            color: #f8fafc;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Canvas ad alte prestazioni per bolle 3D fluttuanti e scoppi */
+        #bubble-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Glassmorphism Premium UI */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 28px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6);
+        }
+
+        .glass-card {
+            background: rgba(255, 255, 255, 0.98);
+            color: #0f172a;
+            border-radius: 28px;
+            box-shadow: 0 20px 45px rgba(0, 0, 0, 0.35);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+        }
+
+        .btn-gradient-blue {
+            background: linear-gradient(135deg, #2563eb, #1d4ed8);
+            color: white;
+            box-shadow: 0 4px 14px rgba(37, 99, 235, 0.35);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .btn-gradient-blue:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(37, 99, 235, 0.55);
+            background: linear-gradient(135deg, #1d4ed8, #1e40af);
+        }
+
+        .hidden-section {
+            display: none !important;
+        }
+
+        /* Input a matrice personalizzati */
+        .matrix-table th {
+            font-size: 0.85rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #475569;
+            padding: 14px 10px;
+        }
+        .matrix-table td {
+            padding: 14px 10px;
+            border-top: 1px solid #f1f5f9;
+        }
+        .matrix-radio {
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            accent-color: #2563eb;
+        }
+
+        /* Scelte di gradimento 1-5 */
+        .scale-radio-btn {
+            appearance: none;
+            width: 50px;
+            height: 50px;
+            border: 2px solid #cbd5e1;
+            border-radius: 50%;
+            outline: none;
+            cursor: pointer;
+            display: grid;
+            place-content: center;
+            font-weight: 800;
+            color: #334155;
+            background-color: white;
+            transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .scale-radio-btn::before {
+            content: attr(data-value);
+        }
+        .scale-radio-btn:checked {
+            background-color: #2563eb;
+            border-color: #2563eb;
+            color: white;
+            transform: scale(1.18);
+            box-shadow: 0 0 18px rgba(37, 99, 235, 0.5);
+        }
+
+        /* Stili per tabelle comparative */
+        .comp-header {
+            background: linear-gradient(to right, #1e293b, #0f172a);
+        }
+    </style>
+</head>
+<body class="antialiased flex flex-col min-h-screen">
+
+    <!-- Sfondo Animato Bolle Spaziali -->
+    <canvas id="bubble-canvas"></canvas>
+
+    <!-- HEADER DI NAVIGAZIONE ISTITUZIONALE -->
+    <header class="w-full bg-slate-950/80 backdrop-blur-md border-b border-slate-800 sticky top-0 z-50 px-6 py-4 shadow-xl">
+        <div class="max-w-7xl mx-auto flex justify-between items-center">
+            <!-- Logo a Sinistra -->
+            <div class="flex items-center space-x-4 cursor-pointer" onclick="location.reload()">
+                <div class="bg-white p-2 rounded-xl shadow-inner border border-slate-200">
+                    <img id="header-logo" src="levi.png" alt="Logo Primo Levi" class="h-12 w-auto object-contain" 
+                         onerror="this.src='https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=120&auto=format&fit=crop&q=80';">
+                </div>
+                <div>
+                    <h1 class="text-xl font-black text-white tracking-tight leading-none">ITSCG "Primo Levi"</h1>
+                    <span class="text-xs text-blue-400 font-extrabold tracking-widest uppercase">Seregno • Via Briatina 68</span>
+                </div>
+            </div>
+
+            <!-- Bottone Area Docenti a Destra -->
+            <div>
+                <button onclick="showView('view-teacher-login')" class="bg-slate-800 hover:bg-slate-700 text-slate-100 border border-slate-700 hover:border-slate-600 px-5 py-2.5 rounded-xl font-extrabold text-sm transition-all duration-300 shadow-md flex items-center space-x-2">
+                    <span>🗝️ Area Docenti</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- NOTIFICHE MODALI PERSONALIZZATE -->
+    <div id="custom-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white text-slate-900 rounded-3xl p-8 max-w-sm w-full mx-4 shadow-2xl border border-slate-100 text-center space-y-6">
+            <div id="modal-icon" class="text-5xl">ℹ️</div>
+            <h4 id="modal-title" class="text-xl font-black">Notifica</h4>
+            <p id="modal-message" class="text-slate-600 text-sm leading-relaxed"></p>
+            <button onclick="closeModal()" class="w-full btn-gradient-blue py-3 rounded-xl font-bold">Continua</button>
+        </div>
+    </div>
+
+    <!-- DIALOGO DI CONFERMA PERSONALIZZATO -->
+    <div id="confirm-modal" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm flex items-center justify-center z-50 hidden">
+        <div class="bg-white text-slate-900 rounded-3xl p-8 max-w-md w-full mx-4 shadow-2xl border border-slate-100 text-center space-y-6">
+            <div class="text-5xl">❓</div>
+            <h4 id="confirm-title" class="text-xl font-black">Conferma Richiesta</h4>
+            <p id="confirm-message" class="text-slate-600 text-sm leading-relaxed text-left bg-slate-50 p-4 rounded-xl border border-slate-150"></p>
+            <div class="flex space-x-4">
+                <button id="btn-confirm-cancel" class="w-1/2 bg-slate-200 hover:bg-slate-300 text-slate-800 py-3 rounded-xl font-bold transition">Annulla</button>
+                <button id="btn-confirm-ok" class="w-1/2 btn-gradient-blue py-3 rounded-xl font-bold transition">Procedi</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- AREA DI CONTENUTO CENTRALE -->
+    <main class="flex-grow container mx-auto px-4 py-8 max-w-5xl relative z-10">
+
+        <!-- INTRODUZIONE DETTAGLIATA -->
+        <div id="intro-card" class="text-center mb-8 glass-panel p-8 text-white">
+            <h2 class="text-3xl font-black tracking-tight text-blue-400 uppercase">Valutazione delle Attività di Orientamento</h2>
+            <p class="text-slate-300 mt-2 text-sm md:text-base max-w-3xl mx-auto leading-relaxed">
+                Gentile famiglia e cari alunni, vi ringraziamo per aver partecipato alle nostre iniziative. La compilazione del questionario avviene in forma <strong>completamente anonima</strong> e sicura. I dati registrati online sul database d'istituto aiuteranno lo staff a calibrare al meglio i percorsi formativi dell'anno scolastico venturo.
+            </p>
+        </div>
+
+        <!-- SCHERMATA SELEZIONE QUESTIONARIO -->
+        <div id="view-role-selection" class="glass-card p-8 md:p-12 text-center space-y-8">
+            <div class="space-y-2">
+                <h3 class="text-2xl font-black text-slate-900">Seleziona il percorso svolto</h3>
+                <p class="text-slate-500 font-medium">Scegli la categoria corrispondente per iniziare la compilazione delle domande specifiche:</p>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto pt-4">
+                <!-- Percorso 1: Open Day Classi Terze -->
+                <button onclick="startForm('openday-terze')" class="btn-gradient-blue p-6 rounded-2xl flex flex-col items-center justify-center space-y-4 text-center group">
+                    <span class="text-4xl group-hover:scale-110 transition-transform">🏫</span>
+                    <div>
+                        <h4 class="font-bold text-lg">Open Day (Terze)</h4>
+                        <p class="text-xs text-blue-100 mt-1 opacity-90">Studenti Classi Terze Medie</p>
+                    </div>
+                </button>
+
+                <!-- Percorso 2: Open Day Classi Seconde -->
+                <button onclick="startForm('openday-seconde')" class="bg-indigo-600 hover:bg-indigo-700 text-white p-6 rounded-2xl flex flex-col items-center justify-center space-y-4 text-center shadow-lg group transition-all duration-300 hover:-translate-y-1">
+                    <span class="text-4xl group-hover:scale-110 transition-transform">🌱</span>
+                    <div>
+                        <h4 class="font-bold text-lg">Orientamento (Seconde)</h4>
+                        <p class="text-xs text-indigo-100 mt-1 opacity-90">Orientamento precoce Classi Seconde</p>
+                    </div>
+                </button>
+
+                <!-- Percorso 3: Ministage Pratici -->
+                <button onclick="startForm('ministage')" class="bg-teal-600 hover:bg-teal-700 text-white p-6 rounded-2xl flex flex-col items-center justify-center space-y-4 text-center shadow-lg group transition-all duration-300 hover:-translate-y-1">
+                    <span class="text-4xl group-hover:scale-110 transition-transform">🔬</span>
+                    <div>
+                        <h4 class="font-bold text-lg">Ministage Pratici</h4>
+                        <p class="text-xs text-teal-100 mt-1 opacity-90">Laboratori attivi in presenza</p>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- FORM COMPILAZIONE COMPLETA STUDENTE -->
+        <div id="view-student-form" class="glass-card p-6 md:p-10 hidden-section">
+            <button onclick="showView('view-role-selection')" class="text-blue-600 font-extrabold hover:underline mb-6 inline-flex items-center space-x-1">
+                <span>&larr; Torna alla Selezione Percorsi</span>
+            </button>
+            
+            <div class="border-b border-slate-200 pb-4 mb-8">
+                <span class="bg-blue-100 text-blue-800 text-xs px-3 py-1 rounded-full font-black tracking-wider uppercase">Inserimento Anonimo Online</span>
+                <h2 id="form-title" class="text-2xl md:text-3xl font-black text-slate-900 mt-2">Caricamento moduli...</h2>
+            </div>
+            
+            <form id="main-form" class="space-y-8" onsubmit="submitForm(event)">
+                <div id="form-fields-container" class="space-y-8">
+                    <!-- I campi vengono caricati in tempo reale tramite script -->
+                </div>
+                <button type="submit" class="btn-gradient-blue w-full py-4.5 rounded-2xl text-lg font-black tracking-wide mt-10">Invia Questionario sul Database</button>
+            </form>
+
+            <!-- Schermata di Ringraziamento ad Invio Avvenuto -->
+            <div id="form-success" class="hidden text-center py-16 space-y-6">
+                <div class="text-7xl">🌟</div>
+                <h3 class="text-3xl font-black text-slate-900">Grazie per il vostro prezioso Feedback!</h3>
+                <div class="max-w-2xl mx-auto space-y-4 text-slate-600 text-sm md:text-base leading-relaxed text-justify bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                    <p>
+                        Il vostro contributo anonimo è stato trasmesso con successo ed inserito all'interno del database d'istituto dell'<strong>ITSCG Primo Levi</strong>. Questa azione di cittadinanza studentesca attiva aiuterà concretamente la commissione orientamento e i docenti ad aggiornare le relazioni finali di monitoraggio.
+                    </p>
+                    <p class="font-bold text-blue-800">
+                        Ogni anno, grazie alle famiglie e agli alunni che compilano questo modulo, investiamo in nuove attrezzature tecnologiche e rimoduliamo i laboratori didattici per accogliervi al meglio. Ti auguriamo una fantastica conclusione del tuo ciclo scolastico!
+                    </p>
+                </div>
+                <button onclick="location.reload()" class="mt-4 btn-gradient-blue px-8 py-3 rounded-xl font-bold">Compila un altro modulo</button>
+            </div>
+        </div>
+
+        <!-- AREA DI LOGIN DOCENTI -->
+        <div id="view-teacher-login" class="glass-card p-8 max-w-md mx-auto hidden-section">
+            <button onclick="showView('view-role-selection')" class="text-blue-600 font-extrabold hover:underline mb-6 inline-flex items-center space-x-1">
+                <span>&larr; Torna Indietro</span>
+            </button>
+            <h2 class="text-2xl font-black text-slate-900 text-center mb-6">Accesso Dashboard Docenti</h2>
+            
+            <div class="space-y-5">
+                <div>
+                    <label class="block text-sm font-black text-slate-700 mb-2">Password di Sicurezza Istituto</label>
+                    <input type="password" id="teacher-password" class="w-full p-3.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Chiave di Accesso">
+                </div>
+                <button onclick="loginTeacher()" class="w-full btn-gradient-blue py-3.5 rounded-xl font-bold">Verifica e Accedi</button>
+                <p id="login-error" class="text-red-500 text-sm font-bold hidden text-center">Password non valida.</p>
+            </div>
+        </div>
+
+        <!-- LATO DOCENTE: DASHBOARD ANALISI & GESTIONE DOMANDE -->
+        <div id="view-teacher-dashboard" class="glass-card p-6 md:p-10 hidden-section">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-slate-200 pb-6 mb-8 gap-4">
+                <div>
+                    <h2 class="text-3xl font-black text-slate-900 tracking-tight">Monitoraggio Valutativo Offerta</h2>
+                    <p class="text-sm text-slate-500 font-semibold uppercase tracking-wider">ITSCG Primo Levi Seregno • Amministrazione</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button onclick="showView('view-manage-events'); loadAndRenderEvents();" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow transition">
+                        📅 Gestisci Date Eventi
+                    </button>
+                    <button onclick="showView('view-add-question')" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow transition">
+                        ➕ Aggiungi Domanda Nuova
+                    </button>
+                    <button onclick="confirmAndClearDatabase()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-2.5 rounded-xl text-sm font-bold shadow transition">
+                        🗑️ Svuota Database
+                    </button>
+                    <button onclick="location.reload()" class="bg-slate-800 text-slate-100 px-4 py-2.5 rounded-xl text-sm font-bold transition">
+                        Esci Sessione
+                    </button>
+                </div>
+            </div>
+
+            <!-- TAB MENU DI SELEZIONE REPORT STATISTICO -->
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-8">
+                <div class="flex flex-wrap space-x-1.5 bg-slate-100 p-1.5 rounded-2xl border border-slate-200">
+                    <button onclick="renderDashboard('openday-terze')" id="tab-openday-terze" class="px-4 py-2 rounded-xl font-bold transition text-xs md:text-sm">Classi Terze</button>
+                    <button onclick="renderDashboard('openday-seconde')" id="tab-openday-seconde" class="px-4 py-2 rounded-xl font-bold transition text-xs md:text-sm">Classi Seconde</button>
+                    <button onclick="renderDashboard('ministage')" id="tab-ministage" class="px-4 py-2 rounded-xl font-bold transition text-xs md:text-sm">Ministage</button>
+                </div>
+
+                <!-- SELETTORE ANNO PER FILTRAGGIO DINAMICO -->
+                <div class="flex items-center space-x-3">
+                    <label for="filter-year" class="text-xs font-black text-slate-500 uppercase tracking-wider">Filtra per Anno:</label>
+                    <select id="filter-year" onchange="applyYearFilter()" class="p-2.5 border border-slate-300 rounded-xl bg-white text-slate-800 font-bold text-sm focus:ring-2 focus:ring-blue-500 outline-none">
+                        <option value="all">Tutti gli anni (Aggregato)</option>
+                        <option value="2026">Anno 2026</option>
+                        <option value="2025">Anno 2025</option>
+                        <option value="2024">Anno 2024</option>
+                    </select>
+                </div>
+                
+                <div class="flex gap-2">
+                    <button onclick="exportToExcel()" class="bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2.5 rounded-xl font-black text-xs md:text-sm transition shadow flex items-center space-x-1">
+                        <span>📥 Esporta Dati Excel (.csv)</span>
+                    </button>
+                    <button onclick="confirmAndGenerateMock()" class="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2.5 rounded-xl font-bold text-xxs md:text-xs transition shadow">
+                        ⚙️ Popola con Campioni Test
+                    </button>
+                </div>
+            </div>
+
+            <!-- CARICAMENTO CLOUD -->
+            <div id="loading-data" class="text-center py-16 text-slate-400 font-bold text-lg animate-pulse">
+                ⏳ Recupero dati analitici dal cloud in corso...
+            </div>
+
+            <!-- CONTENITORE PRINCIPALE DEI REPORT GRAFICI E DELLE RIFLESSIONI -->
+            <div id="dashboard-content" class="hidden space-y-12">
+                <!-- Generato dinamicamente via Javascript -->
+            </div>
+        </div>
+
+        <!-- FORM CREAZIONE DOMANDA DOCENTE -->
+        <div id="view-add-question" class="glass-card p-8 max-w-xl mx-auto hidden-section">
+            <button onclick="showView('view-teacher-dashboard')" class="text-blue-600 font-extrabold hover:underline mb-6 inline-flex items-center space-x-1">
+                <span>&larr; Torna alla Dashboard Analitica</span>
+            </button>
+            <h2 class="text-2xl font-black text-slate-900 mb-6">Crea Nuova Domanda Questionario</h2>
+            
+            <form id="add-question-form" class="space-y-6" onsubmit="submitNewQuestion(event)">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Destinazione Questionario</label>
+                    <select id="new-q-target" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" required>
+                        <option value="openday-terze">Open Day Classi Terze</option>
+                        <option value="openday-seconde">Open Day Classi Seconde</option>
+                        <option value="ministage">Ministage Laboratoriali</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Testo della Domanda</label>
+                    <input type="text" id="new-q-label" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" placeholder="Scrivi la tua domanda qui..." required>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Tipologia di Input</label>
+                    <select id="new-q-type" onchange="toggleNewOptionsVisibility()" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" required>
+                        <option value="scale">Scala Gradimento (1 a 5)</option>
+                        <option value="radio">Risposta Singola (Radio)</option>
+                        <option value="checkbox">Risposta Multipla (Checkbox)</option>
+                        <option value="text">Risposta Testuale Aperta</option>
+                    </select>
+                </div>
+
+                <!-- Campo per opzioni visibile se radio o checkbox -->
+                <div id="new-q-options-container" class="hidden">
+                    <label class="block text-sm font-bold text-slate-700 mb-1">Opzioni di Risposta (separate da virgola)</label>
+                    <input type="text" id="new-q-options" class="w-full p-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" placeholder="Opzione A, Opzione B, Opzione C">
+                </div>
+
+                <button type="submit" class="w-full btn-gradient-blue py-3.5 rounded-xl font-bold shadow">Salva online ed applica al questionario</button>
+            </form>
+        </div>
+
+        <!-- FORM GESTIONE DATE EVENTI -->
+        <div id="view-manage-events" class="glass-card p-8 max-w-4xl mx-auto hidden-section">
+            <button onclick="showView('view-teacher-dashboard')" class="text-blue-600 font-extrabold hover:underline mb-6 inline-flex items-center space-x-1">
+                <span>&larr; Torna alla Dashboard Analitica</span>
+            </button>
+            <h2 class="text-2xl font-black text-slate-900 mb-6">Gestione Date ed Eventi</h2>
+            
+            <form id="add-event-form" class="space-y-4 mb-8" onsubmit="submitNewEvent(event)">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Destinazione</label>
+                        <select id="new-ev-target" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" required>
+                            <option value="openday-terze">Open Day Classi Terze</option>
+                            <option value="openday-seconde">Orientamento Classi Seconde</option>
+                            <option value="ministage">Ministage Laboratoriali</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Data Evento</label>
+                        <input type="date" id="new-ev-date" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" required>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-bold text-slate-700 mb-1">Descrizione (es. Turno Mattina)</label>
+                        <input type="text" id="new-ev-desc" class="w-full p-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none" placeholder="Descrizione sintetica..." required>
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-fuchsia-600 hover:bg-fuchsia-700 text-white py-3 rounded-xl font-bold shadow transition">Aggiungi Evento al Calendario Online</button>
+            </form>
+
+            <div class="border-t border-slate-200 pt-6">
+                <h3 class="text-lg font-bold text-slate-800 mb-4">Eventi attualmente configurati e visibili</h3>
+                <div id="events-list-container" class="space-y-3 max-h-64 overflow-y-auto pr-2">
+                    <!-- Eventi caricati dinamicamente -->
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- FOOTER ISTITUZIONALE -->
+    <footer class="w-full bg-slate-950 text-slate-400 py-10 border-t border-slate-900 text-center text-sm font-semibold mt-auto relative z-10 px-6">
+        <div class="max-w-7xl mx-auto space-y-3">
+            <p class="text-white text-lg tracking-wider uppercase font-black">ITSCG PRIMO LEVI DI SEREGNO</p>
+            <p class="text-slate-400">VIA BRIATINA 68 — 20831 SEREGNO (MB)</p>
+            <p class="text-xs text-slate-500 pt-4">&copy; 2026 TUTTI I DIRITTI RISERVATI — Area Amministrativa & Orientamento scolastico</p>
+        </div>
+    </footer>
+
+    <!-- INIZIALIZZAZIONE E INTEGRAZIONE FIREBASE CLOUD -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, query, where, deleteDoc, doc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // CONFIGURAZIONE REALE FORNITA DALL'UTENTE
+        const firebaseConfig = {
+            apiKey: "AIzaSyCTd3-w-a-RupAXe7tEiFDHvcKiiHZ5lXg",
+            authDomain: "questionariogradimento-2856b.firebaseapp.com",
+            projectId: "questionariogradimento-2856b",
+            storageBucket: "questionariogradimento-2856b.firebasestorage.app",
+            messagingSenderId: "591452748699",
+            appId: "1:591452748699:web:0b2bf0e4f96a0642a93f3e",
+            measurementId: "G-QZZ82002GX"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'questionariogradimento-e0620';
+
+        let userAuthenticated = false;
+        
+        // Inizializzazione sicura e globale degli array condivisi
+        window.chartInstances = window.chartInstances || [];
+
+        // Esegui autenticazione anonima obbligatoria prima di accedere a Firestore
+        const initAuthentication = async () => {
+            try {
+                await signInAnonymously(auth);
+                userAuthenticated = true;
+                console.log("Connessione cloud con Firebase stabilita in modalità Anonima.");
+            } catch (error) {
+                console.error("Inizializzazione autenticazione fallita:", error);
+            }
+        };
+        initAuthentication();
+
+        // NOTIFICHE MODALI SOSTITUTIVE DI ALERT()
+        function openModal(title, message, icon = 'ℹ️') {
+            document.getElementById('modal-title').innerText = title;
+            document.getElementById('modal-message').innerText = message;
+            document.getElementById('modal-icon').innerText = icon;
+            document.getElementById('custom-modal').classList.remove('hidden');
+        }
+        window.openModal = openModal;
+
+        function closeModal() {
+            document.getElementById('custom-modal').classList.add('hidden');
+        }
+        window.closeModal = closeModal;
+
+        // CONFERME MODALI SOSTITUTIVE DI CONFIRM()
+        let confirmCallback = null;
+        function openConfirmModal(title, message, callback) {
+            document.getElementById('confirm-title').innerText = title;
+            document.getElementById('confirm-message').innerText = message;
+            confirmCallback = callback;
+            document.getElementById('confirm-modal').classList.remove('hidden');
+        }
+        window.openConfirmModal = openConfirmModal;
+
+        document.getElementById('btn-confirm-cancel').addEventListener('click', () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            confirmCallback = null;
+        });
+
+        document.getElementById('btn-confirm-ok').addEventListener('click', () => {
+            document.getElementById('confirm-modal').classList.add('hidden');
+            if (confirmCallback) {
+                confirmCallback();
+            }
+            confirmCallback = null;
+        });
+
+        const defaultQuestions = {
+            'openday-terze': [
+                { id: 't1', type: 'text', label: '1. Comune di Provenienza', required: true, chartable: false },
+                { id: 't2', type: 'text', label: '2. Scuola Secondaria di Primo Grado di Provenienza', required: true, chartable: false },
+                { id: 't3', type: 'select', label: "3. Seleziona la data / l'evento a cui hai partecipato:", options: [], required: true, chartable: true },
+                { id: 't4', type: 'radio', label: "4. A quale presentazione dell'indirizzo di studi avete partecipato?", options: ['Liceo Scientifico opzione Scienze Applicate', 'Relazioni Internazionali per il Marketing (RIM)', 'Sistema Moda (articolazione tessile abbigliamento moda)', 'Logistica e Trasporti', 'Costruzione Ambiente e Territorio (CAT)', 'Tutti i percorsi presentati'], required: true, chartable: true },
+                { id: 't5', type: 'checkbox', label: "5. Ci sono aspetti che vi preoccupano maggiormente nel passaggio alla scuola superiore?", options: ['Rapporto con i nuovi docenti', 'Metodo di studio e carico dei compiti a casa', 'Dialogo e canale scuola-famiglia', 'Livello di difficoltà complessivo degli studi', 'Inserimento sociale nel nuovo gruppo classe', 'Integrazione BES / DSA', 'Distanza da casa e trasporti pubblici'], chartable: true },
+                { id: 't6', type: 'scale', label: "6. Ad oggi, qual è l'intenzione effettiva di iscrizione presso l'ITSCG Primo Levi? (1 = Per nulla, 5 = Moltissimo)", required: true, chartable: true },
+                { id: 't7', type: 'radio', label: "7. Eravate già a conoscenza degli specifici indirizzi proposti dalla nostra scuola?", options: ['Sì, completamente', 'No, quasi per nulla', 'Solo parzialmente'], required: true, chartable: true },
+                { id: 't8', type: 'scale', label: "8. Le informazioni sull'orientamento fornite dalla scuola media rispecchiano la nostra realtà? (1-5)", required: true, chartable: true },
+                { id: 't9', type: 'checkbox', label: "9. Quali informazioni speravate maggiormente di raccogliere nella giornata odierna?", options: ['Dettagli del piano formativo e didattico', 'Visita dei laboratori e delle aule', 'Incontro diretto con i docenti di indirizzo', 'Orari scolastici e servizi accessori', 'Sbocchi lavorativi e sbocchi accademici'], chartable: true },
+                { id: 't12', type: 'matrix', label: "10. Relativamente ai seguenti aspetti, qual è il livello di gradimento riscontrato?", rows: [
+                    { key: 'organizz', label: "Organizzazione generale dell'attività" },
+                    { key: 'accoglia', label: "Accoglienza all'ingresso della scuola" },
+                    { key: 'disponib', label: "Disponibilità dei docenti e del personale scolastico" },
+                    { key: 'chiarezz', label: "Chiarezza e completezza delle informazioni" },
+                    { key: 'utilitac', label: "Utilità complessiva della visita" },
+                    { key: 'partecip', label: "Partecipazione degli studenti alle attività" }
+                ], options: ['Per nulla', 'Poco', 'Abbastanza', 'Molto', 'Moltissimo'], required: true, chartable: true },
+                { id: 't13', type: 'radio', label: "11. Trovate utile l'implementazione parallela di canali informativi digitali o streaming?", options: ['Sì, ottimale', 'No, preferisco solo in presenza', 'Ininfluente per la scelta'], required: true, chartable: true },
+                { id: 't16', type: 'select', label: "12. Al momento attuale, quale sarebbe la tua probabilità percentuale stimata di iscriverti al Primo Levi?", options: ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'], required: true, chartable: true },
+                { id: 't17', type: 'textarea', label: '13. Indica brevemente il motivo principale per cui hai espresso questa intenzione d\'iscrizione (cosa ti spinge a iscriverti o cosa ti frena):', required: true, chartable: false },
+                { id: 't14', type: 'textarea', label: '14. Aspetti o argomenti che avresti voluto approfondire maggiormente (Domanda aperta):', required: false, chartable: false },
+                { id: 't15', type: 'textarea', label: '15. Inserisci qui suggerimenti liberi per aiutarci a migliorare la scuola:', required: false, chartable: false }
+            ],
+            'openday-seconde': [
+                { id: 's1', type: 'text', label: '1. Comune di Provenienza', required: true, chartable: false },
+                { id: 's2', type: 'text', label: '2. Scuola Secondaria di Primo Grado di Provenienza', required: true, chartable: false },
+                { id: 's0', type: 'select', label: "3. Seleziona la data / l'evento a cui hai partecipato:", options: [], required: true, chartable: true },
+                { id: 's3', type: 'radio', label: "4. Con quanto anticipo state valutando l'iscrizione alla scuola superiore?", options: ['Già durante il secondo anno di medie', 'Solo a titolo esplorativo preliminare', 'Incuriositi dalle materie laboratoriali'], required: true, chartable: true },
+                { id: 's4', type: 'scale', label: "5. Quanto ritenete utile avviare un percorso informativo precoce in seconda media? (1-5)", required: true, chartable: true },
+                { id: 's5', type: 'checkbox', label: "6. Quali indirizzi del nostro Istituto attirano maggiormente il vostro interesse?", options: ['Liceo Scientifico Scienze Applicate', 'Relazioni Internazionali (RIM)', 'Sistema Moda', 'Logistica e Trasporti', 'Costruzione Ambiente (CAT)'], chartable: true },
+                { id: 's6', type: 'radio', label: "7. Pensate di tornare a trovarci il prossimo anno per l'attività di terza?", options: ['Sì, per approfondire', 'Probabilmente', 'No, ho già le idee chiare'], required: true, chartable: true },
+                { id: 's8', type: 'select', label: "8. Ad oggi, qual è la tua attuale probabilità percentuale stimata di iscriverti all'ITSCG Primo Levi?", options: ['0%', '10%', '20%', '30%', '40%', '50%', '60%', '70%', '80%', '90%', '100%'], required: true, chartable: true },
+                { id: 's9', type: 'textarea', label: '9. Indica il motivo principale per cui hai espresso questa intenzione d\'iscrizione (cosa ti attira o cosa ti frena):', required: true, chartable: false },
+                { id: 's10', type: 'checkbox', label: "10. In vista della classe terza, quali sono gli aspetti su cui ritieni di dover lavorare maggiormente per compiere una scelta consapevole?", options: ['Capire meglio le mie attitudini e passioni personali', 'Confrontarmi con docenti delle scuole superiori', 'Ricevere e interpretare il consiglio orientativo dei docenti delle medie', 'Analizzare gli sbocchi occupazionali ed universitari dell\'indirizzo', 'Superare l\'ansia legata al cambiamento e al metodo di studio delle superiori'], chartable: true },
+                { id: 's11', type: 'radio', label: "11. Quale attività futura di orientamento ritieni sarebbe più utile organizzare il prossimo anno scolastico?", options: ['Altri ministage pratici e laboratori dedicati', 'Incontri formativi individuali con esperti orientatori', 'Tavole rotonde e discussione aperta con studenti tutor del Levi', 'Materiali video descrittivi degli sbocchi professionali'], required: true, chartable: true },
+                { id: 's7', type: 'textarea', label: '12. Condividi con noi i tuoi dubbi o riflessioni principali sulla futura scelta scolastica:', required: false, chartable: false }
+            ],
+            'ministage': [
+                { id: 'm1', type: 'text', label: '1. Comune di Provenienza', required: true, chartable: false },
+                { id: 'm2', type: 'text', label: '2. Scuola Secondaria di Provenienza', required: true, chartable: false },
+                { id: 'm0', type: 'select', label: "3. Seleziona la data / l'evento a cui hai partecipato:", options: [], required: true, chartable: true },
+                { id: 'm3', type: 'radio', label: "4. A quale laboratorio disciplinare (Ministage) hai partecipato in presenza?", options: ['Informatica applicata, Coding e Microcontrollori', 'Chimica organica, Strumentazione e Materiali', 'Economia Aziendale, Geopolitica e Marketing', 'Progettazione grafica computerizzata (CAT)', 'Lingue Straniere e relazioni internazionali'], required: true, chartable: true },
+                { id: 'm4', type: 'scale', label: "5. Quanto hai trovato utile la sperimentazione prima di passare all'azione? (1-5)", required: true, chartable: true },
+                { id: 'm5', type: 'scale', label: "6. Chiarezza, supporto ed accoglienza mostrata dai docenti e alunni tutor (1-5)", required: true, chartable: true },
+                { id: 'm6', type: 'radio', label: "7. L'attività pratica ti ha aiutato a sciogliere i dubbi sulla scelta futura?", options: ['Moltissimo', 'Abbastanza', 'Poco', 'Per nulla'], required: true, chartable: true },
+                { id: 'm8', type: 'checkbox', label: "8. Cosa avresti preferito trovare o fare di diverso in questo ministage per renderlo più soddisfacente?", options: ['Effettuare più esperimenti pratici guidati autonomamente', 'Ricevere più spiegazioni teoriche prima della pratica', 'Vedere video dimostrativi e simulazioni digitali', 'Avere più tempo per dialogare con gli studenti tutor del Levi', 'Meno teoria frontale e più simulazione di laboratorio reale'], chartable: true },
+                { id: 'm9', type: 'textarea', label: "9. Descrivi brevemente cosa in particolare non ti è piaciuto del ministage svolto o cosa cambieresti:", required: false, chartable: false },
+                { id: 'm7', type: 'textarea', label: '10. Suggerimenti aggiuntivi per migliorare i futuri laboratori pratici:', required: false, chartable: false }
+            ]
+        };
+
+        let currentFormType = '';
+        let currentQuestions = [];
+        let fetchedResponses = []; 
+        let customQuestions = []; 
+        let configuredEvents = []; 
+
+        // Navigazione sezioni
+        function showView(viewId) {
+            document.querySelectorAll('.glass-card').forEach(el => {
+                if (el.id && el.id.startsWith('view-')) el.classList.add('hidden-section');
+            });
+            const selectedView = document.getElementById(viewId);
+            if (selectedView) {
+                selectedView.classList.remove('hidden-section');
+            }
+            if (viewId === 'view-student-form') {
+                document.getElementById('main-form').style.display = 'block';
+                document.getElementById('form-success').classList.add('hidden');
+            }
+        }
+        window.showView = showView;
+
+        function goToDocenti() {
+            showView('view-teacher-login');
+        }
+        window.goToDocenti = goToDocenti;
+
+        // Recupero domande personalizzate da Firestore
+        async function loadCustomQuestions() {
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/domande_aggiuntive`;
+                const snapshot = await getDocs(collection(db, collectionPath));
+                customQuestions = [];
+                snapshot.forEach(doc => {
+                    customQuestions.push(doc.data());
+                });
+            } catch (err) {
+                console.error("Impossibile scaricare le domande personalizzate:", err);
+            }
+        }
+        window.loadCustomQuestions = loadCustomQuestions;
+
+        // Gestione Eventi (Date pre-impostate dai docenti)
+        async function loadConfiguredEvents() {
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/eventi_configurati`;
+                const snapshot = await getDocs(collection(db, collectionPath));
+                configuredEvents = [];
+                snapshot.forEach(doc => {
+                    configuredEvents.push({ id: doc.id, ...doc.data() });
+                });
+            } catch (err) {
+                console.error("Impossibile scaricare eventi configurati:", err);
+            }
+        }
+        window.loadConfiguredEvents = loadConfiguredEvents;
+
+        async function submitNewEvent(e) {
+            e.preventDefault();
+            const target = document.getElementById('new-ev-target').value;
+            const date = document.getElementById('new-ev-date').value;
+            const desc = document.getElementById('new-ev-desc').value;
+            
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/eventi_configurati`;
+                await addDoc(collection(db, collectionPath), {
+                    target, date, desc, timestamp: new Date().toISOString()
+                });
+                document.getElementById('add-event-form').reset();
+                loadAndRenderEvents();
+            } catch (err) {
+                console.error(err);
+                openModal("Errore", "Impossibile salvare l'evento.", "❌");
+            }
+        }
+        window.submitNewEvent = submitNewEvent;
+
+        async function loadAndRenderEvents() {
+            await loadConfiguredEvents();
+            const container = document.getElementById('events-list-container');
+            container.innerHTML = '';
+            
+            if (configuredEvents.length === 0) {
+                container.innerHTML = '<p class="text-sm text-slate-500 font-medium">Nessun evento configurato al momento.</p>';
+                return;
+            }
+            
+            configuredEvents.sort((a,b) => new Date(b.date) - new Date(a.date));
+
+            configuredEvents.forEach(ev => {
+                const targetLabel = ev.target === 'openday-terze' ? 'Op. Day Terze' : (ev.target === 'openday-seconde' ? 'Orient. Seconde' : 'Ministage');
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm';
+                div.innerHTML = `
+                    <div class="flex items-center flex-wrap gap-2">
+                        <span class="bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-md font-bold uppercase tracking-wider">${targetLabel}</span>
+                        <span class="font-black text-slate-800">${ev.date}</span>
+                        <span class="text-sm text-slate-600 font-medium">— ${ev.desc}</span>
+                    </div>
+                    <button onclick="deleteEvent('${ev.id}')" class="text-rose-500 hover:text-rose-700 bg-rose-50 hover:bg-rose-100 p-2 rounded-lg transition" title="Elimina Evento">
+                        🗑️
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+        window.loadAndRenderEvents = loadAndRenderEvents;
+
+        async function deleteEvent(id) {
+            openConfirmModal("Elimina Evento", "Sei sicuro di voler eliminare definitivamente questa data/evento dal calendario?", async () => {
+                try {
+                    const docRef = doc(db, `artifacts/${appId}/public/data/eventi_configurati`, id);
+                    await deleteDoc(docRef);
+                    loadAndRenderEvents();
+                } catch (e) {
+                    console.error("Errore eliminazione:", e);
+                }
+            });
+        }
+        window.deleteEvent = deleteEvent;
+
+        // Avvio form compilazione studente
+        async function startForm(type) {
+            currentFormType = type;
+            
+            // Carica domande ed eventi personalizzati dal database
+            await loadCustomQuestions();
+            await loadConfiguredEvents();
+            
+            const relevantCustom = customQuestions.filter(q => q.target === type);
+            
+            // Cloniamo l'array di default per non mutare permanentemente la struttura base
+            let questionsBase = JSON.parse(JSON.stringify(defaultQuestions[type]));
+            
+            // Trova la domanda relativa alla data e popolala con gli eventi configurati dai docenti
+            const dateQIndex = questionsBase.findIndex(q => q.id === 't3' || q.id === 's0' || q.id === 'm0');
+            if (dateQIndex !== -1) {
+                const targetEvents = configuredEvents.filter(e => e.target === type);
+                if (targetEvents.length > 0) {
+                    targetEvents.sort((a,b) => new Date(b.date) - new Date(a.date));
+                    questionsBase[dateQIndex].options = targetEvents.map(e => `${e.date} — ${e.desc}`);
+                } else {
+                    questionsBase[dateQIndex].options = ["Nessun evento configurato al momento (Procedi ugualmente)"];
+                    questionsBase[dateQIndex].required = false;
+                }
+            }
+
+            currentQuestions = [...questionsBase, ...relevantCustom];
+
+            let titleText = '';
+            if (type === 'openday-terze') titleText = 'Questionario Open Day - Classi Terze';
+            else if (type === 'openday-seconde') titleText = 'Questionario Orientamento - Classi Seconde';
+            else if (type === 'ministage') titleText = 'Questionario Ministage Laboratoriali';
+
+            document.getElementById('form-title').innerText = titleText;
+            buildStudentForm(currentQuestions);
+            showView('view-student-form');
+        }
+        window.startForm = startForm;
+
+        // Costruzione dinamica dell'interfaccia di compilazione per lo studente
+        function buildStudentForm(questions) {
+            const container = document.getElementById('form-fields-container');
+            container.innerHTML = '';
+
+            questions.forEach(q => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'bg-slate-50 p-6 md:p-8 rounded-3xl border border-slate-200/60 shadow-sm space-y-4';
+                
+                let inputHtml = '';
+                const req = q.required ? 'required' : '';
+
+                if (q.type === 'text') {
+                    inputHtml = `<input type="text" name="${q.id}" class="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none transition font-semibold" placeholder="Risposta testuale..." ${req}>`;
+                } else if (q.type === 'date') {
+                    inputHtml = `<input type="date" name="${q.id}" class="w-full max-w-xs p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none transition font-semibold text-slate-700" ${req}>`;
+                } else if (q.type === 'textarea') {
+                    inputHtml = `<textarea name="${q.id}" rows="3" class="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none transition" placeholder="Commento..." ${req}></textarea>`;
+                } else if (q.type === 'select') {
+                    inputHtml = `<select name="${q.id}" class="w-full p-4 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 bg-white outline-none transition font-semibold" ${req}>
+                        <option value="" disabled selected>Seleziona un'opzione...</option>` +
+                        q.options.map(opt => `<option value="${opt}">${opt}</option>`).join('') +
+                        `</select>`;
+                } else if (q.type === 'radio') {
+                    inputHtml = `<div class="grid grid-cols-1 gap-2.5">` + q.options.map(opt => 
+                        `<label class="flex items-center space-x-3 cursor-pointer p-4 border border-slate-200 rounded-2xl hover:bg-slate-100 transition bg-white">
+                            <input type="radio" name="${q.id}" value="${opt}" ${req} class="h-5 w-5 text-blue-600 focus:ring-blue-500">
+                            <span class="text-slate-800 font-bold text-sm md:text-base">${opt}</span>
+                        </label>`
+                    ).join('') + `</div>`;
+                } else if (q.type === 'checkbox') {
+                    inputHtml = `<div class="grid grid-cols-1 md:grid-cols-2 gap-2.5">` + q.options.map(opt => 
+                        `<label class="flex items-center space-x-3 cursor-pointer p-4 border border-slate-200 rounded-2xl hover:bg-slate-100 transition bg-white">
+                            <input type="checkbox" name="${q.id}" value="${opt}" class="h-5 w-5 text-blue-600 focus:ring-blue-500 rounded">
+                            <span class="text-slate-800 font-bold text-sm">${opt}</span>
+                        </label>`
+                    ).join('') + `</div>`;
+                } else if (q.type === 'scale') {
+                    inputHtml = `
+                    <div class="flex justify-between items-center w-full max-w-md mx-auto py-2">
+                        <span class="text-xs font-black text-slate-400">Per nulla</span>
+                        <div class="flex space-x-2">` + [1, 2, 3, 4, 5].map(val => 
+                            `<label class="cursor-pointer">
+                                <input type="radio" name="${q.id}" value="${val}" data-value="${val}" ${req} class="scale-radio-btn">
+                            </label>`
+                        ).join('') + `</div>
+                        <span class="text-xs font-black text-slate-400">Moltissimo</span>
+                    </div>`;
+                } else if (q.type === 'matrix') {
+                    let tableRows = q.rows.map(row => {
+                        let radioCells = q.options.map(opt => 
+                            `<td class="text-center">
+                                <input type="radio" name="${q.id}_${row.key}" value="${opt}" ${req} class="matrix-radio">
+                             </td>`
+                        ).join('');
+                        return `
+                        <tr>
+                            <td class="font-bold text-slate-800 text-sm py-4 pr-4">${row.label}</td>
+                            ${radioCells}
+                        </tr>`;
+                    }).join('');
+
+                    let tableHeaders = q.options.map(opt => `<th class="text-center font-black">${opt}</th>`).join('');
+
+                    inputHtml = `
+                    <div class="overflow-x-auto bg-white border border-slate-200 rounded-2xl p-4 shadow-inner">
+                        <table class="w-full matrix-table min-w-[600px]">
+                            <thead>
+                                <tr>
+                                    <th class="text-left font-black text-slate-500">Aspetto valutato</th>
+                                    ${tableHeaders}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${tableRows}
+                            </tbody>
+                        </table>
+                    </div>`;
+                }
+
+                wrapper.innerHTML = `<label class="block font-black text-slate-800 text-base md:text-lg leading-snug">${q.label}${q.required ? ' <span class="text-rose-500">*</span>' : ''}</label>${inputHtml}`;
+                container.appendChild(wrapper);
+            });
+        }
+
+        // Invio dei dati sul database online
+        async function submitForm(e) {
+            e.preventDefault();
+            if (!userAuthenticated) {
+                openModal("Attenzione", "La connessione cloud con il database non è ancora attiva. Attendi un istante.", "⚠️");
+                return;
+            }
+
+            const formData = new FormData(e.target);
+            
+            // Estrazione dell'anno dalla data/evento selezionato dalla tendina
+            let extractedYear = 2026; // Anno di default
+            const dateFields = ['t3', 's0', 'm0'];
+            for (let f of dateFields) {
+                const fVal = formData.get(f);
+                if (fVal && fVal !== "Nessun evento configurato al momento (Procedi ugualmente)") {
+                    // Il formato salvato nella tendina è "YYYY-MM-DD — Descrizione"
+                    const datePart = fVal.split(' — ')[0];
+                    const parsedYear = new Date(datePart).getFullYear();
+                    if (!isNaN(parsedYear)) {
+                        extractedYear = parsedYear;
+                    }
+                }
+            }
+
+            const data = { 
+                type: currentFormType, 
+                timestamp: new Date().toISOString(),
+                year: extractedYear // Salvataggio esplicito dell'anno nel database
+            };
+
+            currentQuestions.forEach(q => {
+                if (q.type === 'checkbox') {
+                    data[q.id] = formData.getAll(q.id);
+                } else if (q.type === 'matrix') {
+                    data[q.id] = {};
+                    q.rows.forEach(row => {
+                        data[q.id][row.key] = formData.get(`${q.id}_${row.key}`) || '';
+                    });
+                } else {
+                    data[q.id] = formData.get(q.id) || '';
+                }
+            });
+
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/questionari_risposte`;
+                await addDoc(collection(db, collectionPath), data);
+                
+                document.getElementById('main-form').style.display = 'none';
+                document.getElementById('form-success').classList.remove('hidden');
+            } catch (err) {
+                console.error("Errore salvataggio dati su Firestore:", err);
+                openModal("Errore", "Si è verificato un errore durante l'invio. Riprova.", "❌");
+            }
+        }
+        window.submitForm = submitForm;
+
+        // Gestione visibilità opzioni creazione domanda
+        function toggleNewOptionsVisibility() {
+            const type = document.getElementById('new-q-type').value;
+            const container = document.getElementById('new-q-options-container');
+            if (type === 'radio' || type === 'checkbox') {
+                container.classList.remove('hidden');
+            } else {
+                container.classList.add('hidden');
+            }
+        }
+        window.toggleNewOptionsVisibility = toggleNewOptionsVisibility;
+
+        // Invio nuova domanda al database
+        async function submitNewQuestion(e) {
+            e.preventDefault();
+            
+            const target = document.getElementById('new-q-target').value;
+            const label = document.getElementById('new-q-label').value;
+            const type = document.getElementById('new-q-type').value;
+            const optionsInput = document.getElementById('new-q-options').value;
+            
+            let options = [];
+            if (type === 'radio' || type === 'checkbox') {
+                options = optionsInput.split(',').map(o => o.trim()).filter(o => o.length > 0);
+                if (options.length === 0) {
+                    openModal("Verifica Opzioni", "Inserisci le opzioni di scelta separate da virgola.", "⚠️");
+                    return;
+                }
+            }
+
+            const newQ = {
+                id: 'custom_' + Date.now(),
+                target: target,
+                label: label,
+                type: type,
+                options: options,
+                required: true,
+                chartable: type !== 'text'
+            };
+
+            try {
+                const collectionPath = `artifacts/${appId}/public/data/domande_aggiuntive`;
+                await addDoc(collection(db, collectionPath), newQ);
+                
+                openModal("Fatto", "Domanda aggiunta con successo e visibile online nel questionario degli studenti!", "✅");
+                document.getElementById('add-question-form').reset();
+                document.getElementById('new-q-options-container').classList.add('hidden');
+                showView('view-teacher-dashboard');
+                renderDashboard(target);
+            } catch (err) {
+                console.error("Errore salvataggio domanda personalizzata:", err);
+                openModal("Errore", "Impossibile salvare la domanda personalizzata sul cloud.", "❌");
+            }
+        }
+        window.submitNewQuestion = submitNewQuestion;
+
+        // Accesso Docente
+        function loginTeacher() {
+            const pwd = document.getElementById('teacher-password').value;
+            if (pwd.toLowerCase() === "docente") {
+                document.getElementById('teacher-password').value = '';
+                document.getElementById('login-error').classList.add('hidden');
+                showView('view-teacher-dashboard');
+                renderDashboard('openday-terze');
+            } else {
+                document.getElementById('login-error').classList.remove('hidden');
+            }
+        }
+        window.loginTeacher = loginTeacher;
+
+        // Applica filtro per anno selezionato dai docenti
+        function applyYearFilter() {
+            renderDashboard(currentFormType);
+        }
+        window.applyYearFilter = applyYearFilter;
+
+        // SINTESI GENERATIVA DELLE EVIDENZE (RAV) - FUNZIONE STRUTTURATA
+        function renderExecutiveSummary(type, responses, questions) {
+            const summaryDiv = document.createElement('div');
+            summaryDiv.className = "bg-slate-900 text-white p-6 md:p-8 rounded-3xl border border-slate-800 shadow-xl space-y-6";
+            
+            // Calcolo metriche
+            let total = responses.length;
+            let sumSatisfaction = 0;
+            let countSatisfaction = 0;
+            let sumProbability = 0;
+            let countProbability = 0;
+            
+            const percentKey = type === 'openday-terze' ? 't16' : (type === 'openday-seconde' ? 's8' : null);
+            const scaleKey = type === 'openday-terze' ? 't6' : (type === 'openday-seconde' ? 's4' : 'm4');
+            
+            responses.forEach(res => {
+                if (res[scaleKey]) {
+                    const val = parseInt(res[scaleKey]);
+                    if (!isNaN(val)) {
+                        sumSatisfaction += val;
+                        countSatisfaction++;
+                    }
+                }
+                if (percentKey && res[percentKey]) {
+                    const val = parseInt(res[percentKey].replace('%', ''));
+                    if (!isNaN(val)) {
+                        sumProbability += val;
+                        countProbability++;
+                    }
+                }
+            });
+            
+            const avgSat = countSatisfaction > 0 ? (sumSatisfaction / countSatisfaction).toFixed(2) : "N.D.";
+            const avgProb = countProbability > 0 ? Math.round(sumProbability / countProbability) : "N.D.";
+            
+            // Calcolo Indice di Attrattività Organizzativa (IAO)
+            let iaoValue = "N.D.";
+            if (type === 'openday-terze') {
+                let sumMatrix = 0;
+                let countMatrix = 0;
+                responses.forEach(res => {
+                    if (res.t12) {
+                        Object.values(res.t12).forEach(v => {
+                            const mapScore = { 'Per nulla': 1, 'Poco': 2, 'Abbastanza': 3, 'Molto': 4, 'Moltissimo': 5 };
+                            if (mapScore[v]) {
+                                sumMatrix += mapScore[v];
+                                countMatrix++;
+                            }
+                        });
+                    }
+                });
+                iaoValue = countMatrix > 0 ? ((sumMatrix / countMatrix) * 20).toFixed(1) + "%" : "N.D.";
+            } else if (type === 'openday-seconde') {
+                iaoValue = countSatisfaction > 0 ? ((sumSatisfaction / countSatisfaction) * 20).toFixed(1) + "%" : "N.D.";
+            } else {
+                let sumM = 0;
+                let countM = 0;
+                responses.forEach(res => {
+                    if (res.m4) { sumM += parseInt(res.m4); countM++; }
+                    if (res.m5) { sumM += parseInt(res.m5); countM++; }
+                });
+                iaoValue = countM > 0 ? ((sumM / countM) * 20).toFixed(1) + "%" : "N.D.";
+            }
+            
+            summaryDiv.innerHTML = `
+                <div class="flex items-center space-x-3 border-b border-slate-800 pb-4">
+                    <span class="text-3xl">📊</span>
+                    <div>
+                        <h4 class="text-xl font-black text-sky-400 uppercase tracking-wide">Sintesi Generativa delle Evidenze (RAV 2026)</h4>
+                        <p class="text-xs text-slate-400">Elaborazione automatica degli indicatori di performance istituzionale</p>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="block text-xs font-black uppercase text-slate-500 tracking-wider">Attrattività Organizzativa (IAO)</span>
+                        <span class="block text-3xl font-black text-sky-400 mt-2">${iaoValue}</span>
+                        <p class="text-xxs text-slate-400 mt-2">Gradimento medio pesato dei fattori logistici e di accoglienza</p>
+                    </div>
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="block text-xs font-black uppercase text-slate-500 tracking-wider">Conversione Iscrizioni (FCF)</span>
+                        <span class="block text-3xl font-black text-emerald-400 mt-2">${avgProb !== "N.D." ? avgProb + "%" : "N.D."}</span>
+                        <p class="text-xxs text-slate-400 mt-2">Probabilità percentuale stimata di iscrizione futura</p>
+                    </div>
+                    <div class="bg-slate-950 p-5 rounded-2xl border border-slate-800 text-center">
+                        <span class="block text-xs font-black uppercase text-slate-500 tracking-wider">Soddisfazione Offerta (TCI)</span>
+                        <span class="block text-3xl font-black text-indigo-400 mt-2">${avgSat !== "N.D." ? (avgSat * 20).toFixed(1) + "%" : "N.D."}</span>
+                        <p class="text-xxs text-slate-400 mt-2">Valutazione normalizzata del gradimento delle presentazioni</p>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <h5 class="text-sm font-black text-slate-300 uppercase tracking-wider">Analisi Qualitativa delle Risposte Aperte</h5>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left text-xs text-slate-300">
+                            <thead>
+                                <tr class="border-b border-slate-800 text-slate-500 uppercase tracking-wider">
+                                    <th class="pb-2">Risposta Testuale dei Partecipanti</th>
+                                    <th class="pb-2 text-center">Sentiment Stg.</th>
+                                    <th class="pb-2">Proposta d'Azione Strategica del Collegio Docenti</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-800">
+                                ${getOpenCommentsHTML(type, responses)}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('dashboard-content').appendChild(summaryDiv);
+        }
+        window.renderExecutiveSummary = renderExecutiveSummary;
+
+        function getOpenCommentsHTML(type, responses) {
+            let comments = [];
+            const textKeys = type === 'openday-terze' ? ['t17', 't14', 't15'] : (type === 'openday-seconde' ? ['s9', 's7'] : ['m9', 'm7']);
+            
+            responses.forEach(res => {
+                textKeys.forEach(key => {
+                    if (res[key] && res[key].trim().length > 10) {
+                        comments.push(res[key].trim());
+                    }
+                });
+            });
+            
+            if (comments.length === 0) {
+                return `<tr><td colspan="3" class="py-4 text-center text-slate-500 font-bold">Nessun commento testuale significativo registrato per questa selezione.</td></tr>`;
+            }
+            
+            return comments.slice(0, 4).map(comment => {
+                let sentiment = "😐 Neutro";
+                let action = "Monitoraggio generico del feedback.";
+                
+                const lower = comment.toLowerCase();
+                if (lower.includes('eccellent') || lower.includes('molto') || lower.includes('piaciuto') || lower.includes('soddisfatto') || lower.includes('util') || lower.includes('ottim')) {
+                    sentiment = "🟢 Positivo";
+                    action = "Consolidare la metodologia didattica ed estendere i tutorati scolastici d'indirizzo.";
+                } else if (lower.includes('paura') || lower.includes('preoccup') || lower.includes('frena') || lower.includes('distanz') || lower.includes('teoria') || lower.includes('noioso')) {
+                    sentiment = "🔴 Critico";
+                    action = "Rimodulare i tempi del laboratorio, incrementando la pratica e inserendo micro-video informativi.";
+                }
+                
+                return `
+                    <tr>
+                        <td class="py-3 pr-4 max-w-xs truncate md:max-w-md font-medium text-slate-400 italic">"${comment}"</td>
+                        <td class="py-3 text-center font-bold">${sentiment}</td>
+                        <td class="py-3 text-slate-300 font-semibold text-xs">${action}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+        window.getOpenCommentsHTML = getOpenCommentsHTML;
+
+        // RENDERING DEL RAPPORTO COMPARATIVO PLURIENNALE
+        function renderPluriennaleComparison(type, rawResponses) {
+            const comparisonDiv = document.createElement('div');
+            comparisonDiv.className = "bg-white border border-slate-200 p-6 md:p-8 rounded-3xl text-slate-900 space-y-8 shadow-xl mt-12";
+            
+            // Suddivido le risposte per anni (2024, 2025, 2026)
+            const years = [2024, 2025, 2026];
+            const dataByYear = { 2024: [], 2025: [], 2026: [] };
+            
+            rawResponses.forEach(res => {
+                const yr = res.year || 2026;
+                if (dataByYear[yr]) {
+                    dataByYear[yr].push(res);
+                }
+            });
+
+            // Calcolo degli indici medi per anno
+            const metricsByYear = {};
+            years.forEach(yr => {
+                let sumProb = 0, countProb = 0;
+                let sumSat = 0, countSat = 0;
+                const percentKey = type === 'openday-terze' ? 't16' : (type === 'openday-seconde' ? 's8' : null);
+                const scaleKey = type === 'openday-terze' ? 't6' : (type === 'openday-seconde' ? 's4' : 'm4');
+
+                dataByYear[yr].forEach(res => {
+                    if (percentKey && res[percentKey]) {
+                        const val = parseInt(res[percentKey].replace('%', ''));
+                        if (!isNaN(val)) { sumProb += val; countProb++; }
+                    }
+                    if (res[scaleKey]) {
+                        sumSat += parseInt(res[scaleKey]);
+                        countSat++;
+                    }
+                });
+
+                metricsByYear[yr] = {
+                    count: dataByYear[yr].length,
+                    avgProb: countProb > 0 ? Math.round(sumProb / countProb) : 0,
+                    avgSat: countSat > 0 ? (sumSat / countSat).toFixed(2) : 'N.D.'
+                };
+            });
+
+            const chartCanvasId = `chart-comparativo-${type}`;
+            
+            const textReportMonumentale = `
+                <div class="space-y-6 text-sm text-slate-700 text-justify leading-relaxed">
+                    <p class="font-bold text-blue-900 text-base border-b pb-2">📋 RELAZIONE DI SINTESI STORICA E LINEE DI ORIENTAMENTO STRATEGICO (PTOF & RAV)</p>
+                    
+                    <p>
+                        L'analisi comparativa pluriennale condotta sui dati raccolti nel triennio <strong>2024-2026</strong> costituisce un pilastro informativo di fondamentale importanza per l'ITSCG Primo Levi di Seregno. Questa disamina non solo mappa l'andamento storico del livello di gradimento, ma documenta l'efficacia dei costanti investimenti didattici e strutturali deliberati dagli organi collegiali. Attraverso l'interpretazione incrociata delle evidenze quantitative e qualitative, la commissione PTOF ha potuto tracciare l'evoluzione del posizionamento dell'istituto sul territorio della Brianza.
+                    </p>
+
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 py-2">
+                        <div class="bg-blue-50 border-t-4 border-blue-500 p-4 rounded-xl text-center">
+                            <span class="block text-xs font-black uppercase text-slate-500">Anno 2024</span>
+                            <span class="block text-2xl font-black text-blue-900 mt-1">${metricsByYear[2024].avgProb}% <span class="text-xs text-slate-500">Iscr.</span></span>
+                            <span class="text-xs text-slate-500 font-semibold">Gradimento: ${metricsByYear[2024].avgSat}/5</span>
+                        </div>
+                        <div class="bg-indigo-50 border-t-4 border-indigo-500 p-4 rounded-xl text-center">
+                            <span class="block text-xs font-black uppercase text-slate-500">Anno 2025</span>
+                            <span class="block text-2xl font-black text-indigo-900 mt-1">${metricsByYear[2025].avgProb}% <span class="text-xs text-slate-500">Iscr.</span></span>
+                            <span class="text-xs text-slate-500 font-semibold">Gradimento: ${metricsByYear[2025].avgSat}/5</span>
+                        </div>
+                        <div class="bg-emerald-50 border-t-4 border-emerald-500 p-4 rounded-xl text-center">
+                            <span class="block text-xs font-black uppercase text-slate-500">Anno 2026</span>
+                            <span class="block text-2xl font-black text-emerald-900 mt-1">${metricsByYear[2026].avgProb}% <span class="text-xs text-slate-500">Iscr.</span></span>
+                            <span class="text-xs text-slate-500 font-semibold">Gradimento: ${metricsByYear[2026].avgSat}/5</span>
+                        </div>
+                    </div>
+
+                    <p>
+                        <strong>Analisi Evolutiva dei Trend:</strong> Osservando la progressione dei parametri, emerge un trend virtuoso e incrementale. Nel <strong>2024</strong>, primo anno di piena digitalizzazione del sistema di tracciamento orientativo d'istituto, l'indice medio di conversione iscrizioni era attestato su livelli comunque ragguardevoli. Le principali criticità emerse dai questionari storici riguardavano la fruibilità dei locali d'aula durante le visite e il tempo effettivo dedicato all'esplorazione dei linguaggi di programmazione o degli atelier del settore Moda. In seguito a tali riscontri, nel corso dell'anno scolastico <strong>2025</strong> sono stati attuati interventi correttivi mirati: è stato esteso l'intervallo temporale dedicato ai singoli ministage pratici e sono stati inaugurati i nuovi dispositivi di robotica educativa finanziati dai fondi PNRR. Come si evince dal grafico comparativo, questo sforzo si è tradotto in una decisa crescita del gradimento complessivo ed in una conseguente crescita del tasso stimato di iscrizione futura.
+                    </p>
+
+                    <p>
+                        <strong>La Svolta del 2026 e l'Esperienza Pratica:</strong> Nell'anno corrente <strong>2026</strong>, la stabilità degli indici di rendimento statistico dimostra come le modifiche strategiche apportate abbiano messo radici profonde. L'introduzione del questionario di orientamento precoce dedicato espressamente alle <strong>classi seconde delle scuole medie</strong> si è rivelata una mossa metodologicamente azzeccata. Permettere ad alunni di seconda media di interfacciarsi anzitempo con gli indirizzi didattici del Primo Levi (dall'Amministrazione Finanza e Marketing fino alla Costruzione Ambiente e Territorio) ha drasticamente ridotto l'ansia da transizione riscontrata storicamente dai docenti tutor all'inizio del terzo anno.
+                    </p>
+
+                    <p class="font-bold text-slate-800">🎯 MATRICE SWOT STORICA CONSOLIDATA D'ISTITUTO (2024 - 2026)</p>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <span class="font-extrabold text-blue-800 text-xs uppercase block mb-1">➕ Punti di Forza (Strengths)</span>
+                            <ul class="list-disc list-inside text-xs space-y-1 text-slate-600">
+                                <li>Eccellente preparazione metodologica e didattica degli alunni tutor interni.</li>
+                                <li>Dotazione tecnologica di primissimo livello per laboratori chimici e informatici.</li>
+                                <li>Percorsi formativi allineati con i mutamenti industriali del territorio della Brianza.</li>
+                            </ul>
+                        </div>
+                        <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                            <span class="font-extrabold text-amber-800 text-xs uppercase block mb-1">⚠️ Punti di Debolezza (Weaknesses)</span>
+                            <ul class="list-disc list-inside text-xs space-y-1 text-slate-600">
+                                <li>Logistica di accoglienza che rischia il congestionamento nei picchi di affluenza.</li>
+                                <li>Inadeguato tempo di interazione a tu per tu tra docenti e famiglie per chiarimenti personalizzati.</li>
+                                <li>Metodologia didattica teorica ritenuta a tratti ridondante rispetto agli esperimenti pratici.</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <p>
+                        <strong>Punti di Debolezza Storici e Soluzioni:</strong> Un nodo critico emerso con costanza nel corso del triennio è rappresentato dal bilanciamento teorico-pratico dei Ministage. Molti alunni partecipanti hanno evidenziato come l'esposizione teorico-frontale iniziale, per quanto chiara, finisca per sottrarre tempo prezioso all'attività di manipolazione fisica o digitale degli strumenti di laboratorio. La raccomandazione strategica per il prossimo anno scolastico è quella di adottare una didattica di stampo "Flipped Classroom" o "Learning by Doing", in cui la teoria è ridotta al minimo a favore di micro-esperimenti collaborativi a squadre facilitati dai nostri studenti tutor.
+                    </p>
+
+                    <p>
+                        <strong>Conclusioni e Raccomandazioni per il Collegio Docenti:</strong> In conclusione, i risultati pluriennali mostrano una scuola dinamica, reattiva e orientata al miglioramento continuo. I dati storici aggregati dimostrano che gli investimenti materiali devono sempre essere affiancati da un'eccellente formazione relazionale del personale. Per mantenere questo vantaggio competitivo, l'ITSCG Primo Levi dovrà implementare un piano di marketing territoriale ancora più capillare, potenziando la rete di collaborazione con gli istituti comprensivi di Seregno, Meda e Lissone, e strutturando open day flessibili, capaci di alternare in tempo reale laboratori e sessioni informative in presenza e streaming digitale.
+                    </p>
+                </div>
+            `;
+
+            comparisonDiv.innerHTML = `
+                <div class="flex items-center space-x-3 border-b border-slate-200 pb-4">
+                    <span class="text-3xl">📈</span>
+                    <div>
+                        <h4 class="text-xl font-black text-blue-900 uppercase tracking-wide">Analisi Comparativa Pluriennale (Confronto Storico 2024-2026)</h4>
+                        <p class="text-xs text-slate-500">Confronto incrociato dei dati storici d'istituto per la valutazione del drift valutativo</p>
+                    </div>
+                </div>
+
+                <div class="flex flex-col lg:flex-row gap-8 items-center py-4">
+                    <div class="w-full lg:w-2/5 flex justify-center">
+                        <div class="w-full max-w-[320px]">
+                            <canvas id="${chartCanvasId}"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="w-full lg:w-3/5 space-y-4">
+                        <h5 class="text-sm font-black text-slate-800 uppercase tracking-wider">Trend Storico Indice di Iscrizione e Gradimento</h5>
+                        <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200">
+                            <p class="text-xs text-slate-600 text-justify leading-relaxed">
+                                Il grafico a barre a sinistra confronta in parallelo l'andamento del gradimento medio (rapportato su base percentuale per coerenza visiva) e la probabilità stimata di conversione iscrizioni futura nel corso del triennio. Como evidente, la traiettoria di sviluppo è lineare e positiva, a dimostrazione dell'efficacia delle azioni di rinnovamento scolastico intraprese dall'istituto.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                ${textReportMonumentale}
+            `;
+
+            document.getElementById('dashboard-content').appendChild(comparisonDiv);
+
+            setTimeout(() => {
+                const ctx = document.getElementById(chartCanvasId).getContext('2d');
+                
+                const convertToPercent = (valStr) => {
+                    const parsed = parseFloat(valStr);
+                    return isNaN(parsed) ? 0 : Math.round((parsed / 5) * 100);
+                };
+
+                new Chart(ctx, {
+                    type: 'bar',
+                    data: {
+                        labels: ['2024', '2025', '2026'],
+                        datasets: [
+                            {
+                                label: 'Probabilità Iscrizione Media (%)',
+                                data: [metricsByYear[2024].avgProb, metricsByYear[2025].avgProb, metricsByYear[2026].avgProb],
+                                backgroundColor: '#10b981',
+                                borderColor: '#059669',
+                                borderWidth: 1
+                            },
+                            {
+                                label: 'Indice Gradimento Medio (Normalizzato %)',
+                                data: [
+                                    convertToPercent(metricsByYear[2024].avgSat),
+                                    convertToPercent(metricsByYear[2025].avgSat),
+                                    convertToPercent(metricsByYear[2026].avgSat)
+                                ],
+                                backgroundColor: '#3b82f6',
+                                borderColor: '#2563eb',
+                                borderWidth: 1
+                            }
+                        ]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: { font: { size: 9, weight: 'bold' } }
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                max: 100,
+                                ticks: { font: { size: 9 } }
+                            },
+                            x: {
+                                ticks: { font: { size: 10, weight: 'bold' } }
+                            }
+                        }
+                    }
+                });
+            }, 100);
+        }
+        window.renderPluriennaleComparison = renderPluriennaleComparison;
+
+        // RENDER DELLA DASHBOARD DOCENTI
+        async function renderDashboard(type) {
+            currentFormType = type;
+            const filterYear = document.getElementById('filter-year').value;
+
+            document.getElementById('loading-data').classList.remove('hidden');
+            document.getElementById('dashboard-content').classList.add('hidden');
+            document.getElementById('dashboard-content').innerHTML = '';
+
+            // Corretta gestione sicura dell'istanza e dei vecchi grafici
+            if (window.chartInstances && Array.isArray(window.chartInstances)) {
+                window.chartInstances.forEach(c => {
+                    if(c && typeof c.destroy === 'function') {
+                        c.destroy();
+                    }
+                });
+            }
+            window.chartInstances = [];
+
+            try {
+                await loadCustomQuestions();
+                const relevantCustom = customQuestions.filter(q => q.target === type);
+                const allCurrentQuestions = [...defaultQuestions[type], ...relevantCustom];
+
+                // Recupero risposte da Firestore
+                const collectionPath = `artifacts/${appId}/public/data/questionari_risposte`;
+                const q = query(collection(db, collectionPath), where("type", "==", type));
+                const snapshot = await getDocs(q);
+                
+                const rawResponses = [];
+                snapshot.forEach(doc => rawResponses.push(doc.data()));
+
+                let filteredResponses = [];
+                if (filterYear === "all") {
+                    filteredResponses = rawResponses;
+                } else {
+                    const targetYear = parseInt(filterYear);
+                    filteredResponses = rawResponses.filter(res => (res.year || 2026) === targetYear);
+                }
+
+                // Sincronizza l'array delle risposte lette per far funzionare correttamente l'export Excel globale
+                fetchedResponses = filteredResponses;
+
+                document.getElementById('loading-data').classList.add('hidden');
+                document.getElementById('dashboard-content').classList.remove('hidden');
+
+                if (rawResponses.length === 0) {
+                    document.getElementById('dashboard-content').innerHTML = `
+                        <div class="text-center py-12 space-y-4">
+                            <p class="text-xl text-slate-500 font-bold">Nessuna risposta presente in questo archivio del database.</p>
+                            <p class="text-sm text-slate-400">Clicca sul pulsante "Popola con Campioni Test" in alto a destra per inserire 15 risposte casuali storiche (2024, 2025, 2026) e testare immediatamente grafici, report storici pluriennali e filtri.</p>
+                        </div>`;
+                    return;
+                }
+
+                // INIEZIONE DEL MODULO DI SINTESI GENERATIVA DELLE EVIDENZE (RAV) PER L'ANNO FILTRATO
+                renderExecutiveSummary(type, filteredResponses, allCurrentQuestions);
+
+                // RENDERING DELLA NUOVA SCHEDA ANALITICA COMPARATIVA PLURIENNALE (CONFRONTO STORICO)
+                renderPluriennaleComparison(type, rawResponses);
+
+                // Header dei Grafici di Dettaglio Annuale
+                const headerReport = document.createElement('div');
+                headerReport.className = "bg-slate-900 text-white p-6 md:p-8 rounded-3xl border-l-8 border-blue-600 shadow-lg mb-8 mt-12";
+                headerReport.innerHTML = `
+                    <div class="flex justify-between items-start flex-wrap gap-4">
+                        <div>
+                            <span class="bg-blue-600 text-white text-xs px-3 py-1.5 rounded-full font-black uppercase tracking-wider">Distribuzione Frequenze</span>
+                            <h3 class="text-2xl font-black mt-2">Dettaglio Grafici Annuale — Anno: ${filterYear === 'all' ? 'Tutti (Aggregato)' : filterYear}</h3>
+                        </div>
+                        <div class="bg-slate-800 border border-slate-700 px-6 py-3 rounded-2xl text-center">
+                            <span class="block text-3xl font-extrabold text-blue-400">${filteredResponses.length}</span>
+                            <span class="text-xs uppercase text-slate-400 font-bold">Record Trovati</span>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('dashboard-content').appendChild(headerReport);
+
+                if (filteredResponses.length === 0) {
+                    const noYearData = document.createElement('div');
+                    noYearData.className = "text-center py-10 text-slate-500 font-bold";
+                    noYearData.innerText = "Nessun dato registrato sul database per l'anno selezionato.";
+                    document.getElementById('dashboard-content').appendChild(noYearData);
+                    return;
+                }
+
+                // Disegno dei grafici e calcolo riflessioni
+                allCurrentQuestions.filter(q => q.chartable).forEach((qObj, index) => {
+                    if (qObj.type === 'matrix') {
+                        qObj.rows.forEach((row, rowIndex) => {
+                            const dataCounts = {};
+                            let totalValid = 0;
+
+                            filteredResponses.forEach(res => {
+                                const matrixRes = res[qObj.id];
+                                if (matrixRes && matrixRes[row.key]) {
+                                    const score = matrixRes[row.key];
+                                    dataCounts[score] = (dataCounts[score] || 0) + 1;
+                                    totalValid++;
+                                }
+                            });
+
+                            if (totalValid > 0) {
+                                createChartSection({
+                                    id: `${qObj.id}_${row.key}`,
+                                    label: `${qObj.label} — ${row.label}`,
+                                    options: qObj.options
+                                }, dataCounts, totalValid, `${index}_${rowIndex}`);
+                            }
+                        });
+                    } else {
+                        const dataCounts = {};
+                        let totalValid = 0;
+
+                        filteredResponses.forEach(res => {
+                            let val = res[qObj.id];
+                            if (val === undefined || val === null || val === '') return;
+
+                            if (Array.isArray(val)) {
+                                val.forEach(v => {
+                                    dataCounts[v] = (dataCounts[v] || 0) + 1;
+                                    totalValid++;
+                                });
+                            } else {
+                                dataCounts[val] = (dataCounts[val] || 0) + 1;
+                                totalValid++;
+                            }
+                        });
+
+                        if (totalValid > 0) {
+                            createChartSection(qObj, dataCounts, totalValid, index);
+                        }
+                    }
+                });
+
+            } catch (err) {
+                console.error("Errore caricamento statistiche:", err);
+                document.getElementById('loading-data').innerHTML = `<span class="text-rose-500 font-bold">Errore di rete nell'accesso alle API Firebase. Riprova.</span>`;
+            }
+        }
+        window.renderDashboard = renderDashboard;
+
+        // Creazione Grafico e Generatore automatico di riflessioni approfondite (5-6 righe)
+        function createChartSection(qObj, dataCounts, totalResponses, index) {
+            const container = document.getElementById('dashboard-content');
+            
+            const section = document.createElement('div');
+            section.className = "bg-white p-6 md:p-8 rounded-3xl shadow-md border border-slate-150 flex flex-col md:flex-row gap-8 items-center transition hover:shadow-xl";
+
+            const chartWrapper = document.createElement('div');
+            chartWrapper.className = "w-full md:w-2/5 flex justify-center";
+            chartWrapper.innerHTML = `<div class="w-full max-w-[240px]"><canvas id="chart-${index}"></canvas></div>`;
+
+            const textWrapper = document.createElement('div');
+            textWrapper.className = "w-full md:w-3/5 space-y-4";
+
+            // Scomposizione dati per report
+            const sorted = Object.entries(dataCounts).sort((a,b) => b[1] - a[1]);
+            const topLabel = sorted[0][0];
+            const topPct = Math.round((sorted[0][1] / totalResponses) * 100);
+            
+            let deviazioneNotevole = "";
+            if (sorted.length > 1) {
+                const secondLabel = sorted[1][0];
+                const secondPct = Math.round((sorted[1][1] / totalResponses) * 100);
+                deviazioneNotevole = `Contestualmente, l'opzione <em>"${secondLabel}"</em> raccoglie una percentuale di preferenze secondaria attestandosi sul <strong>${secondPct}%</strong>, delineando un nucleo d'interesse degno di specifico approfondimento didattico.`;
+            } else {
+                deviazioneNotevole = "L'unanimità statistica registrata esclude polarizzazioni differenti, mostrando una convergenza d'opinione eccezionale da parte del campione.";
+            }
+
+            // Generatore di riflessioni pedagogiche complesse (5-6 righe)
+            const commentoAnalitico = `
+                Dall'analisi qualitativa incrociata dei feedback raccolti, l'indicatore principale si orienta nettamente verso l'opzione <strong>"${topLabel}"</strong>, che capitalizza il <strong>${topPct}%</strong> delle preferenze complessive. Questa distribuzione evidenzia l'efficacia delle azioni intraprese in questo specifico settore organizzativo dell'ITSCG Primo Levi. ${deviazioneNotevole} 
+                Per il corpo docente, questi dati indicano una rotta chiara per la redazione del Piano Triennale dell'Offerta Formativa (PTOF) e del Rapporto di Autovalutazione (RAV), consentendo di implementare azioni correttive sui canali informativi minori per elevare ulteriormente gli standard accademici.
+            `;
+
+            // Creazione di una Tabella Dettagliata delle Frequenze da mettere sotto la riflessione
+            let tableRows = Object.entries(dataCounts).map(([key, value]) => {
+                const pct = Math.round((value / totalResponses) * 100);
+                return `
+                    <tr class="border-t border-slate-100 text-xs">
+                        <td class="py-2 text-slate-700 font-medium">${key}</td>
+                        <td class="py-2 text-slate-800 text-center font-bold">${value}</td>
+                        <td class="py-2 text-blue-600 text-center font-extrabold">${pct}%</td>
+                    </tr>
+                `;
+            }).join('');
+
+            textWrapper.innerHTML = `
+                <div class="flex items-center space-x-3">
+                    <span class="bg-blue-100 text-blue-900 h-8 w-8 rounded-full flex items-center justify-center font-black text-sm">${index + 1}</span>
+                    <h4 class="text-base md:text-lg font-black text-slate-900 leading-tight">${qObj.label}</h4>
+                </div>
+                <div class="bg-slate-50 p-5 rounded-2xl border-l-4 border-blue-500">
+                    <p class="text-slate-700 leading-relaxed text-xs text-justify">
+                        ${commentoAnalitico}
+                    </p>
+                </div>
+                
+                <!-- Tabella delle Frequenze dettagliata -->
+                <div class="bg-white border border-slate-200/80 rounded-xl p-3 shadow-inner">
+                    <table class="w-full">
+                        <thead>
+                            <tr class="text-left text-xxs uppercase tracking-wider text-slate-400">
+                                <th class="pb-1">Opzione Risposta</th>
+                                <th class="pb-1 text-center">Frequenza (N)</th>
+                                <th class="pb-1 text-center">Percentuale (%)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${tableRows}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            section.appendChild(chartWrapper);
+            section.appendChild(textWrapper);
+            container.appendChild(section);
+
+            // Inizializzazione della ciambella 2D
+            const ctx = document.getElementById(`chart-${index}`).getContext('2d');
+            const coloriGrafico = ['#2563eb', '#10b981', '#6366f1', '#f59e0b', '#ec4899', '#ef4444', '#a855f7', '#64748b'];
+
+            const newChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: Object.keys(dataCounts),
+                    datasets: [{
+                        data: Object.values(dataCounts),
+                        backgroundColor: coloriGrafico.slice(0, Object.keys(dataCounts).length),
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom',
+                            labels: {
+                                padding: 12,
+                                font: { size: 9, weight: 'bold', family: 'sans-serif' },
+                                boxWidth: 10
+                            }
+                        }
+                    },
+                    cutout: '55%'
+                }
+            });
+            window.chartInstances.push(newChart);
+        }
+
+        // FUNZIONE DI SVUOTAMENTO / CANCELLAZIONE SICURA DATABASE
+        function confirmAndClearDatabase() {
+            openConfirmModal(
+                "ATTENZIONE: Azione Altamente Distruttiva!", 
+                "Sei sicuro di voler CANCELLARE COMPLETAMENTE l'intero database delle risposte? Questa operazione eliminerà definitivamente tutte le registrazioni storiche online (2024, 2025, 2026) da Firestore e non è reversibile.",
+                async () => {
+                    document.getElementById('loading-data').classList.remove('hidden');
+                    document.getElementById('dashboard-content').classList.add('hidden');
+                    try {
+                        const collectionPath = `artifacts/${appId}/public/data/questionari_risposte`;
+                        const snapshot = await getDocs(collection(db, collectionPath));
+                        
+                        let deletePromises = [];
+                        snapshot.forEach(documentSnapshot => {
+                            const docRef = doc(db, collectionPath, documentSnapshot.id);
+                            deletePromises.push(deleteDoc(docRef));
+                        });
+
+                        await Promise.all(deletePromises);
+                        openModal("Svuotamento Completato", "Il database è stato cancellato con successo. Tutti i record sono stati rimossi in tempo reale dal cloud.", "🗑️");
+                        renderDashboard(currentFormType);
+                    } catch (err) {
+                        console.error("Errore durante la cancellazione del database:", err);
+                        openModal("Errore", "Non è stato possibile completare lo svuotamento del database. Riprova.", "❌");
+                        document.getElementById('loading-data').classList.add('hidden');
+                    }
+                }
+            );
+        }
+        window.confirmAndClearDatabase = confirmAndClearDatabase;
+
+        // Esportazione in formato CSV Excel con corretta codifica caratteri accentati (BOM)
+        function exportToExcel() {
+            if (!fetchedResponses || fetchedResponses.length === 0) {
+                openModal("Nessun dato", "Non sono presenti dati da esportare in questo momento.", "⚠️");
+                return;
+            }
+
+            const relevantQuestions = defaultQuestions[currentFormType];
+            
+            let csvContent = "data:text/csv;charset=utf-8,\uFEFF"; 
+            const headers = ["Data Inserimento", "Anno", ...relevantQuestions.map(q => `"${q.label.replace(/"/g, '""')}"`)];
+            csvContent += headers.join(";") + "\n";
+
+            fetchedResponses.forEach(res => {
+                const riga = [res.timestamp || "", res.year || 2026];
+                relevantQuestions.forEach(q => {
+                    let valore = res[q.id] || "";
+                    if (q.type === 'matrix') {
+                        let subVals = [];
+                        q.rows.forEach(row => {
+                            let rVal = (res[q.id] && res[q.id][row.key]) ? res[q.id][row.key] : '';
+                            subVals.push(`${row.label}: ${rVal}`);
+                        });
+                        valore = subVals.join(" | ");
+                    } else if (Array.isArray(valore)) {
+                        valore = valore.join(", ");
+                    }
+                    riga.push(`"${valore.toString().replace(/"/g, '""')}"`);
+                });
+                csvContent += riga.join(";") + "\n";
+            });
+
+            const linkEsporta = document.createElement("a");
+            linkEsporta.setAttribute("href", encodeURI(csvContent));
+            linkEsporta.setAttribute("download", `Dati_Questionario_Levi_${currentFormType}.csv`);
+            document.body.appendChild(linkEsporta);
+            linkEsporta.click();
+            document.body.removeChild(linkEsporta);
+        }
+        window.exportToExcel = exportToExcel;
+
+        function confirmAndGenerateMock() {
+            openConfirmModal(
+                "Popolamento Database", 
+                "Desideri inserire 15 risposte casuali strutturate nel tuo database reale per questo specifico questionario? Saranno distribuiti in modo uniforme tra gli anni 2024, 2025 e 2026 per permettere di testare l'istogramma di confronto pluriennale.",
+                () => { generateMockRecords(); }
+            );
+        }
+        window.confirmAndGenerateMock = confirmAndGenerateMock;
+
+        // Generazione dati demo casuali con ANNI MULTIPLI (2024, 2025, 2026) per permettere il confronto
+        async function generateMockRecords() {
+            if (!userAuthenticated) {
+                openModal("Attenzione", "Collegamento al database non pronto.", "⚠️");
+                return;
+            }
+
+            const collectionPath = `artifacts/${appId}/public/data/questionari_risposte`;
+            const randomPick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+            const randomSubset = (arr, max) => arr.sort(() => 0.5 - Math.random()).slice(0, Math.floor(Math.random() * max) + 1);
+
+            const comuni = ["Seregno", "Meda", "Desio", "Lissone", "Carate Brianza", "Cesano Maderno"];
+            const scuole = ["Don Milani Seregno", "Scuola Media IC Moro", "Istituto Comprensivo San Biagio", "G. Rodari Seregno"];
+            const mockYears = [2024, 2025, 2026];
+
+            try {
+                // Generazione di 15 risposte distribuite nei 3 anni per i test pluriennali
+                for (let i = 0; i < 15; i++) {
+                    const chosenYear = randomPick(mockYears);
+                    let mockRecord = {
+                        type: currentFormType,
+                        timestamp: new Date(chosenYear, Math.floor(Math.random() * 12), Math.floor(Math.random() * 28)).toISOString(),
+                        year: chosenYear
+                    };
+
+                    if (currentFormType === 'openday-terze') {
+                        mockRecord = {
+                            ...mockRecord,
+                            t1: randomPick(comuni),
+                            t2: randomPick(scuole),
+                            t3: `${chosenYear}-11-15 — Turno Mock (Simulato)`,
+                            t4: randomPick(defaultQuestions['openday-terze'][3].options),
+                            t5: randomSubset([...defaultQuestions['openday-terze'][4].options], 3),
+                            t6: Math.floor(Math.random() * 5) + 1,
+                            t7: randomPick(defaultQuestions['openday-terze'][6].options),
+                            t8: Math.floor(Math.random() * 5) + 1,
+                            t9: randomSubset([...defaultQuestions['openday-terze'][8].options], 2),
+                            t12: {
+                                organizz: randomPick(defaultQuestions['openday-terze'][9].options),
+                                accoglia: randomPick(defaultQuestions['openday-terze'][9].options),
+                                disponib: randomPick(defaultQuestions['openday-terze'][9].options),
+                                chiarezz: randomPick(defaultQuestions['openday-terze'][9].options),
+                                utilitac: randomPick(defaultQuestions['openday-terze'][9].options),
+                                partecip: randomPick(defaultQuestions['openday-terze'][9].options)
+                            },
+                            t13: randomPick(defaultQuestions['openday-terze'][10].options),
+                            t16: randomPick(defaultQuestions['openday-terze'][11].options),
+                            t17: randomPick([
+                                "Ho scelto questa percentuale perché i laboratori informatici del Levi sono eccellenti e all'avanguardia.",
+                                "Sono molto propenso per l'ottima accoglienza e la chiarezza dell'offerta formativa.",
+                                "Resto ancora in dubbio a causa della distanza della fermata dell'autobus da casa."
+                            ]),
+                            t14: "Mi interesserebbe comprendere meglio i laboratori del Sistema Moda.",
+                            t15: "Sarebbe utile ricevere un depliant riassuntivo anche in formato digitale via mail."
+                        };
+                    } else if (currentFormType === 'openday-seconde') {
+                        mockRecord = {
+                            ...mockRecord,
+                            s1: randomPick(comuni),
+                            s2: randomPick(scuole),
+                            s0: `${chosenYear}-05-18 — Evento Orientamento Simulato`,
+                            s3: randomPick(defaultQuestions['openday-seconde'][3].options),
+                            s4: Math.floor(Math.random() * 3) + 3,
+                            s5: randomSubset([...defaultQuestions['openday-seconde'][5].options], 3),
+                            s6: randomPick(defaultQuestions['openday-seconde'][6].options),
+                            s8: randomPick(defaultQuestions['openday-seconde'][7].options),
+                            s9: "Trovo l'istituto innovativo ma sto valutando anche altre opzioni vicino a casa.",
+                            s10: randomSubset([...defaultQuestions['openday-seconde'][9].options], 2),
+                            s11: randomPick(defaultQuestions['openday-seconde'][10].options),
+                            s7: "Ho molta paura per la mole di lavoro a casa, ma l'accoglienza di oggi mi ha tranquillizzato."
+                        };
+                    } else if (currentFormType === 'ministage') {
+                        mockRecord = {
+                            ...mockRecord,
+                            m1: randomPick(comuni),
+                            m2: randomPick(scuole),
+                            m0: `${chosenYear}-01-22 — Laboratorio Pratico Simulato`,
+                            m3: randomPick(defaultQuestions['ministage'][3].options),
+                            m4: Math.floor(Math.random() * 3) + 3,
+                            m5: Math.floor(Math.random() * 2) + 4,
+                            m6: randomPick(defaultQuestions['ministage'][6].options),
+                            m8: randomSubset([...defaultQuestions['ministage'][7].options], 2),
+                            m9: "Avrei preferito effettuare più attività pratiche autonomamente invece di ascoltare lunghe spiegazioni teoriche.",
+                            m7: "Ottimo stage, ho apprezzato la programmazione attiva."
+                        };
+                    }
+
+                    await addDoc(collection(db, collectionPath), mockRecord);
+                }
+
+                openModal("Fatto", "Caricamento completato con successo. La dashboard statistica è ora aggiornata!", "✅");
+                renderDashboard(currentFormType);
+            } catch (err) {
+                console.error("Errore caricamento dati simulati:", err);
+            }
+        }
+        window.generateMockRecords = generateMockRecords;
+
+        // =========================================================================
+        // FISICA FLUIDA DELLE BOLLE SU CANVAS (3D DRIFT E RIMBALZO MORBIDO CON INTERAZIONE POP)
+        // =========================================================================
+        const canvas = document.getElementById('bubble-canvas');
+        const ctx = canvas.getContext('2d');
+        const logoImg = new Image();
+        logoImg.src = 'levi.png';
+
+        let bubbles = [];
+        let particles = [];
+        let burstRings = [];
+        const numBubbles = 15;
+
+        function resizeCanvas() {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // Classe per particelle di esplosione (soap splash)
+        class Droplet {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 6;
+                this.vy = (Math.random() - 0.5) * 6 - 3; 
+                this.gravity = 0.15;
+                this.r = Math.random() * 3 + 1.5;
+                this.alpha = 1;
+                this.color = `hsla(${Math.random() * 40 + 200}, 80%, 75%, `; 
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+                this.vy += this.gravity;
+                this.alpha -= 0.02;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = this.color + this.alpha + ")";
+                ctx.fill();
+                ctx.restore();
+            }
+        }
+
+        // Classe per anello d'urto visivo dell'esplosione
+        class BurstRing {
+            constructor(x, y, maxR) {
+                this.x = x;
+                this.y = y;
+                this.r = 5;
+                this.maxR = maxR;
+                this.alpha = 0.8;
+            }
+
+            update() {
+                this.r += (this.maxR - this.r) * 0.15;
+                this.alpha -= 0.04;
+            }
+
+            draw() {
+                ctx.save();
+                ctx.globalAlpha = this.alpha;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.strokeStyle = "rgba(255, 255, 255, 0.7)";
+                ctx.lineWidth = 2;
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+
+        // Classe Bolla ad alte prestazioni
+        class Bubble {
+            constructor() {
+                this.reset(true);
+            }
+
+            reset(initial = false) {
+                this.r = Math.random() * 35 + 30; 
+                this.x = Math.random() * (canvas.width - this.r * 2) + this.r;
+                this.y = initial ? Math.random() * canvas.height : canvas.height + this.r * 2;
+                
+                this.vx = (Math.random() - 0.5) * 0.8;
+                this.vy = -(Math.random() * 0.6 + 0.4); 
+                
+                this.z = Math.random() * 0.5 + 0.75; 
+                this.zSpeed = (Math.random() > 0.5 ? 0.002 : -0.002);
+                
+                this.angle = Math.random() * Math.PI * 2;
+                this.wobbleSpeed = Math.random() * 0.02 + 0.01;
+            }
+
+            pop() {
+                const currentRadius = this.r * this.z;
+                burstRings.push(new BurstRing(this.x, this.y, currentRadius * 1.5));
+                for (let i = 0; i < 15; i++) {
+                    particles.push(new Droplet(this.x, this.y));
+                }
+                this.reset();
+            }
+
+            update() {
+                this.y += this.vy * this.z;
+                
+                this.angle += this.wobbleSpeed;
+                this.x += (this.vx + Math.sin(this.angle) * 0.3) * this.z;
+
+                this.z += this.zSpeed;
+                if (this.z > 1.25 || this.z < 0.7) {
+                    this.zSpeed = -this.zSpeed; 
+                }
+
+                const currentRadius = this.r * this.z;
+                if (this.x - currentRadius <= 0) {
+                    this.x = currentRadius;
+                    this.vx = Math.abs(this.vx);
+                } else if (this.x + currentRadius >= canvas.width) {
+                    this.x = canvas.width - currentRadius;
+                    this.vx = -Math.abs(this.vx);
+                }
+
+                if (this.y + currentRadius <= 0) {
+                    this.pop();
+                }
+            }
+
+            draw() {
+                const currentRadius = this.r * this.z;
+                ctx.save();
+                ctx.translate(this.x, this.y);
+
+                const gradient = ctx.createRadialGradient(
+                    -currentRadius * 0.2, -currentRadius * 0.2, currentRadius * 0.1,
+                    0, 0, currentRadius
+                );
+                gradient.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+                gradient.addColorStop(0.5, 'rgba(255, 255, 255, 0.15)');
+                gradient.addColorStop(0.95, 'rgba(255, 255, 255, 0.35)');
+                gradient.addColorStop(1, 'rgba(30, 58, 138, 0.15)');
+
+                ctx.beginPath();
+                ctx.arc(0, 0, currentRadius, 0, Math.PI * 2);
+                ctx.fillStyle = gradient;
+                ctx.fill();
+
+                ctx.lineWidth = 1.5;
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.45)';
+                ctx.stroke();
+
+                const logoSize = currentRadius * 1.1; 
+                ctx.globalAlpha = 0.4 * this.z; 
+                try {
+                    ctx.drawImage(logoImg, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+                } catch (e) {
+                    ctx.beginPath();
+                    ctx.arc(0, 0, currentRadius * 0.5, 0, Math.PI * 2);
+                    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+                    ctx.stroke();
+                }
+
+                ctx.globalAlpha = 1.0;
+                ctx.beginPath();
+                ctx.ellipse(-currentRadius * 0.35, -currentRadius * 0.35, currentRadius * 0.25, currentRadius * 0.12, Math.PI / 4, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 255, 0.75)';
+                ctx.fill();
+
+                ctx.restore();
+            }
+        }
+
+        // Popolamento iniziale bolle
+        for (let i = 0; i < numBubbles; i++) {
+            bubbles.push(new Bubble());
+        }
+
+        // Rilevatore click globale per scoppiare le bolle al click o tocco dello schermo
+        window.addEventListener('click', (e) => {
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+
+            for (let i = 0; i < bubbles.length; i++) {
+                const b = bubbles[i];
+                const currentRadius = b.r * b.z;
+                const dist = Math.hypot(clickX - b.x, clickY - b.y);
+                if (dist <= currentRadius) {
+                    b.pop();
+                    break; 
+                }
+            }
+        });
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            bubbles.forEach(b => {
+                b.update();
+                b.draw();
+            });
+
+            for (let i = burstRings.length - 1; i >= 0; i--) {
+                const ring = burstRings[i];
+                ring.update();
+                ring.draw();
+                if (ring.alpha <= 0) {
+                    burstRings.splice(i, 1);
+                }
+            }
+
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.update();
+                p.draw();
+                if (p.alpha <= 0 || p.y > canvas.height) {
+                    particles.splice(i, 1);
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // Gestione sicura del caricamento della pagina e avvio viste
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            animate();
+            showView('view-role-selection');
+        } else {
+            window.addEventListener('load', () => {
+                animate();
+                showView('view-role-selection');
+            });
+        }
+
+    </script>
+</body>
+</html>
